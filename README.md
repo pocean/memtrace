@@ -1,0 +1,2 @@
+利用llvm，实现一个pass，在程序llvm IR中插入代码，统计访存trace，支持多线程
+在程序的每个load或者store指令之后插入调用showtrace的代码，showtrace实现在showtrace.c中。pass实现为memtrace.cpp文件位于llvm/lib/Transforms/Memtrace中。test.sh为测试脚本，hello.c为示例程序。
