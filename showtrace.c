@@ -2,66 +2,48 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define MAX 100000
+#define MAX 10
 
 struct memtrace_type {
     unsigned long addr;
-    int flag;
-    struct memtrace_type* next;
+    unsigned char flag;
 };
 
-struct memtrace_list_type {
-    int count;
-    struct memtrace_type* head;
-    struct memtrace_type* tail;
+struct memtrace_buf_type {
+    int pos;
+    struct memtrace_type memtrace[MAX];
 };
 
 pthread_key_t keyp;
 pthread_once_t init_done = PTHREAD_ONCE_INIT;
 
-int memtrace_save(struct memtrace_list_type* memtrace_list)
+int memtrace_save(struct memtrace_buf_type* memtrace_buf)
 {
     FILE* fp;
-    struct memtrace_type* p;
     char path[50];
+    int wstat;
     pthread_t tid = pthread_self();
-    sprintf(path, "/home2/pocean/test/memtrace/%u", (unsigned int)tid);
+    sprintf(path, "/home2/pocean/memtrace/memtrace/%u", (unsigned int)tid);
     fp = fopen(path, "a+");
     if (NULL == fp) {
         printf("file open error!\n");
         return 0;
     }
-    for (p = memtrace_list->head; p != NULL; p = p->next) {
-        if (0 == p->flag)
-            fprintf(fp, "load:\t");
-        else
-            fprintf(fp, "store:\t");
-        fprintf(fp, "0x%lx\n", p->addr);
+    wstat = fwrite(memtrace_buf->memtrace, sizeof(struct memtrace_type), memtrace_buf->pos + 1, fp);
+    if (wstat != memtrace_buf->pos+1) {
+        printf("error in write file!\n");
     }
     fclose(fp);
     return 0;
 }
 
-int memtrace_free(struct memtrace_list_type* memtrace_list)
-{
-    struct memtrace_type* p = memtrace_list->head;
-    while (NULL != p) {
-        memtrace_list->head = p->next;
-        free(p);
-        p = memtrace_list->head;
-    }
-    memtrace_list->count = 0;
-    memtrace_list->tail = NULL;
-    return 0;
-}
-
-void memtrace_finish(void* memtrace_list)
+void memtrace_finish(void* memtrace_buf)
 {
     printf("zhixingle xi gou!\n");
-    memtrace_save((struct memtrace_list_type*)memtrace_list);
-    memtrace_free((struct memtrace_list_type*)memtrace_list);
-    free(memtrace_list);
-    pthread_key_delete(keyp);
+    memtrace_save((struct memtrace_buf_type*)memtrace_buf);
+    if (NULL != memtrace_buf) {
+        free(memtrace_buf);
+    } 
 }
 
 void memtrace_init(void)
@@ -71,34 +53,24 @@ void memtrace_init(void)
 
 int showtrace(unsigned long addr, int flag)
 {
-    struct memtrace_type* p;
-    struct memtrace_list_type* memtrace_list;
+    struct memtrace_buf_type* memtrace_buf = NULL;
 
     pthread_once(&init_done, memtrace_init);
-    memtrace_list = pthread_getspecific(keyp);
-    if (NULL == memtrace_list) {
-        memtrace_list = (struct memtrace_list_type*)malloc(sizeof(struct memtrace_list_type));
-        memtrace_list->count = 0;
-        memtrace_list->head = NULL;
-        memtrace_list->tail = NULL;
-        pthread_setspecific(keyp, (void*)memtrace_list);
+    memtrace_buf = pthread_getspecific(keyp);
+
+    if (NULL == memtrace_buf) {
+        memtrace_buf = (struct memtrace_buf_type*)malloc(sizeof(struct memtrace_buf_type));
+        memtrace_buf->pos = 0;
+        pthread_setspecific(keyp, (void*)memtrace_buf);
     }
-    if (memtrace_list->count == MAX) {
-        memtrace_save(memtrace_list);
-        memtrace_free(memtrace_list);
+    if (memtrace_buf->pos == MAX) {
+        memtrace_save(memtrace_buf);
+        memtrace_buf->pos = 0;
     } 
-    p = (struct memtrace_type*)malloc(sizeof(struct memtrace_type)*sizeof(char));
-    p->addr = addr;
-    p->flag = flag;
-    p->next = NULL;
-    if (NULL == memtrace_list->tail) {
-        memtrace_list->tail = p;
-        memtrace_list->head = p;
-    } else {
-        memtrace_list->tail->next = p;
-        memtrace_list->tail = p;
-    }
-    memtrace_list->count++;
-    
+
+    (memtrace_buf->memtrace)[memtrace_buf->pos].addr = addr;
+    (memtrace_buf->memtrace)[memtrace_buf->pos].flag = (unsigned char)flag;
+    memtrace_buf->pos += 1;
+
     return 0;
 }

@@ -8,4 +8,5 @@ llvm-dis new.bc
 #clang new.bc showtrace.bc tmp.bc -lpthread -o all
 llc new.bc -o new.s
 gcc new.s -lshowtrace -lpthread -O2 -o new
-rm memtrace/*
+#rm memtrace/*
+gcc hello2.c -O2 -o hello2_naive -lpthread
