@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "CacheSimulator.h"
 
 #define MAX 10
 
@@ -49,6 +50,9 @@ void memtrace_finish(void* memtrace_buf)
 void memtrace_init(void)
 {
     pthread_key_create(&keyp, memtrace_finish);
+    init_instr_count();
+    init_memory_statistics();
+    init_mem_buf();
 }
 
 int showtrace(unsigned long addr, int flag)
